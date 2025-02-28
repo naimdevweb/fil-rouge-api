@@ -28,6 +28,13 @@ use Symfony\Component\Serializer\Annotation\Groups;
             normalizationContext: ['groups' => ['book:read']],
             security: "is_granted('PUBLIC_ACCESS')"
         ),
+         new GetCollection(
+            uriTemplate: '/vendeurs/{id}/books',
+            normalizationContext: ['groups' => ['book:read']],
+            security: "is_granted('ROLE_USER')",
+            provider: BookCollectionProvider::class,
+            securityMessage: "Vous devez être connecté pour accéder à cette ressource"
+        ),
       
         new Post(
             denormalizationContext: ['groups' => ['book:write']],
@@ -37,7 +44,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
         ),
         new Patch(
             denormalizationContext: ['groups' => ['book:write']],
-            security: "is_granted('BOOK_EDIT', object)",
+            security: "is_granted('BOOK_EDIT', object )",
             securityMessage: "Vous ne pouvez modifier que vos propres livres"
         ),
         new Delete(
@@ -52,28 +59,27 @@ class Book
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['book:read'])]
+    #[Groups(['book:read', 'book:details'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['book:read', 'book:write'])]
+    #[Groups(['book:read', 'book:write', 'book:details'])]
     private ?string $title = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['book:read', 'book:write'])]
+    #[Groups(['book:read', 'book:write', 'book:details'])]
     private ?string $author = null;
 
     /**
      * @var Collection<int, Category>
      */
     #[ORM\ManyToMany(targetEntity: Category::class, inversedBy: 'books')]
-    #[Groups(['book:read', 'book:write'])]
+    #[Groups(['book:read', 'book:write', 'book:details'])]
     private Collection $categories;
 
-   
 
     #[ORM\Column(type: Types::BIGINT)]
-    #[Groups(['book:read', 'book:write'])]
+    #[Groups(['book:read', 'book:write', 'book:details'])]
     private ?string $prix = null;
 
     #[ORM\Column(length: 255)]
@@ -81,30 +87,25 @@ class Book
     private ?string $image = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['book:read', 'book:write'])]
+    #[Groups(['book:read', 'book:write', 'book:details'])]
     private ?string $description_courte = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['book:read', 'book:write'])]
+    #[Groups(['book:read', 'book:write', 'book:details'])]
     private ?string $description_longue = null;
 
-    #[ORM\ManyToOne(inversedBy: 'books')]
+    #[ORM\ManyToOne(inversedBy: 'books', targetEntity: Vendeur::class, cascade: ['persist', 'remove'])]
     #[ORM\JoinColumn(nullable: false)]
     // #[Groups(['book:read', 'book:write'])]
     private ?Vendeur $vendeur = null;
 
     #[ORM\ManyToOne(inversedBy: 'books')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['book:read', 'book:write'])]
+    #[Groups(['book:read', 'book:write', 'book:details'])]
     private ?Etat $etat = null;
 
-   
+    
 
-  
-
-  
-
-  
 
     public function __construct()
     {

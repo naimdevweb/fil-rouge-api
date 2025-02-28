@@ -12,10 +12,10 @@ class CategoryTest extends TestCase
     {
         // Arrange
         $category = new Category();
-        $category->setName('Technology');
+        $category->setName('Disponible');
 
         // Assert
-        $this->assertEquals('Technology', $category->getName());
+        $this->assertEquals('Disponible', $category->getName());
         $this->assertEmpty($category->getBooks());
     }
 

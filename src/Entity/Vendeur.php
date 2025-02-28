@@ -24,13 +24,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
             security: "is_granted('ROLE_USER')",
             securityMessage: "Vous devez être connecté pour accéder à cette ressource"
         ),
-        new GetCollection(
-            uriTemplate: '/vendeurs/{id}/books',
-            normalizationContext: ['groups' => ['book:read']],
-            security: "is_granted('ROLE_USER')",
-            provider: BookCollectionProvider::class,
-            securityMessage: "Vous devez être connecté pour accéder à cette ressource"
-        ),
+       
         new Post(
             uriTemplate: '/vendeurs',
             denormalizationContext: ['groups' => ['vendeur:write']],
@@ -41,7 +35,7 @@ use Symfony\Component\Serializer\Annotation\Groups;
         new Patch(
             uriTemplate: '/vendeurs/{id}',
             denormalizationContext: ['groups' => ['vendeur:write']],
-            security: "is_granted('ROLE_USER') and object.getUser() == user",
+            security: "is_granted('ROLE_VENDEUR') and object.getUser() == user",
             securityMessage: "Vous ne pouvez modifier que votre propre compte vendeur"
         ),
         new Delete(
@@ -69,7 +63,7 @@ class Vendeur
     #[Groups(['vendeur:read', 'vendeur:write'])]
     private ?string $nom_entreprise = null;
 
-    #[ORM\OneToMany(targetEntity: Book::class, mappedBy: 'vendeur')]
+    #[ORM\OneToMany(targetEntity: Book::class, mappedBy: 'vendeur', cascade: ['persist', 'remove'])]
     #[Groups(['vendeur:read'])]
     private Collection $books;
 

@@ -3,32 +3,24 @@
 namespace App\Entity;
 
 use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
 use App\Repository\EtatRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: EtatRepository::class)]
-// #[ApiResource]
-#[ApiResource(
-    operations: [
-        new Get(normalizationContext: ['groups' => ['category:read']]),
-        new GetCollection(normalizationContext: ['groups' => ['category:read']]),
-        // new Post(denormalizationContext: ['groups' => ['category:write']]),
-        // new Patch(denormalizationContext: ['groups' => ['category:write']]),
-        // new Delete(),
-    ]
-)]
+#[ApiResource]
 class Etat
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['etat:read', 'book:details'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(['etat:read', 'book:details'])]
     private ?string $etat = null;
 
     /**
@@ -47,12 +39,12 @@ class Etat
         return $this->id;
     }
 
-    public function getEtat(): ?string
+    public function getName(): ?string
     {
         return $this->etat;
     }
 
-    public function setEtat(string $etat): static
+    public function setName(string $etat): static
     {
         $this->etat = $etat;
 

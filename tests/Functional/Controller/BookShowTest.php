@@ -3,14 +3,17 @@
 namespace App\Tests\Functional\Controller;
 
 use App\Entity\Book;
+use App\Entity\Category;
+use App\Entity\Etat;
 use App\Entity\User;
+use App\Entity\Vendeur;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Response;
 
-class BookRetrieveTest extends WebTestCase
+class BookShowTest extends WebTestCase
 {
     private KernelBrowser $client;
     private ContainerInterface $container;
@@ -40,18 +43,43 @@ class BookRetrieveTest extends WebTestCase
 
     public function testShowBookSuccess(): void
     {
+        $uniqueEmail = 'test' . uniqid() . '@example.com';
         // Arrange
         $user = new User();
-        $user->setEmail('testoar@example.com');
+        $user->setRoles(['ROLE_VENDEUR']);
+        $user->setEmail($uniqueEmail);
+        $user->setTel('0606060606');
         $user->setPassword('password');
+        $user->setUserNom('Test Nom');
+        $user->setUserPrenom('Test Prenom');
+        
+        $vendeur = new Vendeur();
+        $user->setUserVendeur($vendeur);
+        $vendeur->setAdresseEntreprise('Test Adresse_entreprise');
+        $vendeur->setNomEntreprise('Test Nom_entreprise');
+
+        $etat = new Etat();
+        $etat->setName('Test State');
+
+        $category = new Category();
+        $category->setName('Test State');
         
         $book = new Book();
         $book->setTitle('Test Book');
         $book->setAuthor('Test Author');
-       
+        $book->setPrix(10.5);
+        $book->setDescriptionCourte('Test Description_courte');
+        $book->setDescriptionLongue('Test Description_longue');
+        $book->setImage('Test Image');
+        $book->setEtat($etat);
+        $book->addCategory($category);
+        $book->setVendeur($vendeur);
         
         $this->entityManager->persist($user);
         $this->entityManager->persist($book);
+        $this->entityManager->persist($vendeur);
+        $this->entityManager->persist($etat);
+        $this->entityManager->persist($category);
         $this->entityManager->flush();
         
         // Act

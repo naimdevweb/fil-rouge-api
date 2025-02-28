@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Security\Voter;
 
 use App\Entity\Book;
@@ -39,6 +40,6 @@ final class BookVoter extends Voter {
     }
 
     private function isOwner(Book $book, User $user): bool {
-        return $book->getVendeur() === $user;
+        return $book->getVendeur()->getUser() === $user;
     }
 }

@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Delete;
 use App\DataPersister\UserDataPersister;
+use App\DataPersister\UserUpdateDataPersister;
 use App\Repository\UserRepository;
 use App\State\Provider\MeProvider;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -28,7 +29,12 @@ use Symfony\Component\Security\Core\User\UserInterface;
             provider: MeProvider::class,
             securityMessage: "Vous devez être connecté pour accéder à cette ressource"
         ),
-      
+        new Get(
+            uriTemplate: '/users/{id}',
+            normalizationContext: ['groups' => ['user:restrcited:read']],
+            // security: "is_granted('ROLE_USER')",
+            // securityMessage: "Vous devez être connecté pour accéder à cette ressource"
+        ),
         new Post(
             uriTemplate: '/register',
             denormalizationContext: ['groups' => ['user:write']],
@@ -37,100 +43,64 @@ use Symfony\Component\Security\Core\User\UserInterface;
             processor: UserDataPersister::class
         ),
         new Patch(
-            uriTemplate: '/users/{id}',
-            denormalizationContext: ['groups' => ['user:write']],
-            security: "is_granted('ROLE_USER') and object == user",
-            securityMessage: "Vous ne pouvez modifier que votre propre compte"
+            uriTemplate: '/update_me',
+            denormalizationContext: ['groups' => ['user:update']],
+            normalizationContext: ['groups' => ['user:read']],
+            security: "is_granted('ROLE_USER')",
+            provider: MeProvider::class,
+            processor: UserUpdateDataPersister::class,
+            securityMessage: "Vous devez être connecté pour accéder à cette ressource"
         ),
         new Delete(
             uriTemplate: '/users/{id}',
             security: "is_granted('ROLE_USER') and object == user",
             securityMessage: "Vous ne pouvez supprimer que votre propre compte"
         )
-    ]
+    ],
+    normalizationContext: ['groups' => ['user:read']],
+    denormalizationContext: ['groups' => ['user:write']]
 )]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read','user:restrcited:read'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 180, unique: true)]
-    #[Groups(['user:read', 'user:write'])]
+    #[Groups(['user:read', 'user:write', 'user:update'])]
     private ?string $email = null;
 
-    /**
-     * @var list<string> The user roles
-     */
     #[ORM\Column]
     #[Groups(['user:read'])]
     private array $roles = [];
 
-    /**
-     * @var string The hashed password
-     */
     #[ORM\Column]
-    #[Groups(['user:write'])]
+    #[Groups(['user:write', 'user:update'])]
     private ?string $password = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['user:read', 'user:write'])]
+    #[Groups(['user:read', 'user:write', 'user:update'])]
     private ?string $user_nom = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['user:read', 'user:write'])]
+    #[Groups(['user:read', 'user:write', 'user:update','user:restrcited:read'])]
     private ?string $user_prenom = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['user:read', 'user:write'])]
+    #[Groups(['user:read', 'user:write', 'user:update'])]
     private ?string $tel = null;
-
-    /**
-     * @var Collection<int, Book>
-     */
-    #[ORM\OneToMany(targetEntity: Book::class, mappedBy: 'user')]
-    // #[Groups(['user:read'])]
-    private Collection $books;
-
-    /**
-     * @var Collection<int, Message>
-     */
-    #[ORM\OneToMany(targetEntity: Message::class, mappedBy: 'receveur')]
-    #[Groups(['user:read'])]
-    private Collection $messages;
-
-    /**
-     * @var Collection<int, Message>
-     */
-    #[ORM\OneToMany(targetEntity: Message::class, mappedBy: 'envoyeur')]
-    #[Groups(['user:read'])]
-    private Collection $envoyeur_message;
-
-    /**
-     * @var Collection<int, Achat>
-     */
-    #[ORM\OneToMany(targetEntity: Achat::class, mappedBy: 'acheteur')]
-    // #[Groups(['user:read'])]
-    private Collection $livre;
-
-    /**
-     * @var Collection<int, Achat>
-     */
-    #[ORM\OneToMany(targetEntity: Achat::class, mappedBy: 'vendeur')]
-    #[Groups(['user:read'])]
-    private Collection $achats;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?Vendeur $user_vendeur = null;
 
+    #[ORM\OneToMany(targetEntity: Achat::class, mappedBy: 'acheteur', cascade: ['remove'])]
+    private Collection $achats;
+
     public function __construct()
     {
-        $this->books = new ArrayCollection();
-        $this->messages = new ArrayCollection();
-        $this->envoyeur_message = new ArrayCollection();
-        $this->livre = new ArrayCollection();
+        $this->roles = ['ROLE_USER'];
         $this->achats = new ArrayCollection();
     }
 
@@ -151,32 +121,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /**
-     * A visual identifier that represents this user.
-     *
-     * @see UserInterface
-     */
     public function getUserIdentifier(): string
     {
         return (string) $this->email;
     }
 
-    /**
-     * @see UserInterface
-     * @return list<string>
-     */
     public function getRoles(): array
     {
-        $roles = $this->roles;
-        // guarantee every user at least has ROLE_USER
-        $roles[] = 'ROLE_USER';
-
-        return array_unique($roles);
+        return $this->roles;
     }
 
-    /**
-     * @param list<string> $roles
-     */
     public function setRoles(array $roles): static
     {
         $this->roles = $roles;
@@ -184,9 +138,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /**
-     * @see PasswordAuthenticatedUserInterface
-     */
     public function getPassword(): ?string
     {
         return $this->password;
@@ -199,21 +150,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /**
-     * @see UserInterface
-     */
     public function eraseCredentials(): void
     {
-        // If you store any temporary, sensitive data on the user, clear it here
-        // $this->plainPassword = null;
-    }
-
-    /**
-     * @return Collection<int, Book>
-     */
-    public function getBooks(): Collection
-    {
-        return $this->books;
     }
 
     public function getUserNom(): ?string
@@ -252,126 +190,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /**
-     * @return Collection<int, Message>
-     */
-    public function getMessages(): Collection
-    {
-        return $this->messages;
-    }
-
-    public function addMessage(Message $message): static
-    {
-        if (!$this->messages->contains($message)) {
-            $this->messages->add($message);
-            $message->setReceveur($this);
-        }
-
-        return $this;
-    }
-
-    public function removeMessage(Message $message): static
-    {
-        if ($this->messages->removeElement($message)) {
-            // set the owning side to null (unless already changed)
-            if ($message->getReceveur() === $this) {
-                $message->setReceveur(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, Message>
-     */
-    public function getEnvoyeurMessage(): Collection
-    {
-        return $this->envoyeur_message;
-    }
-
-    public function addEnvoyeurMessage(Message $envoyeurMessage): static
-    {
-        if (!$this->envoyeur_message->contains($envoyeurMessage)) {
-            $this->envoyeur_message->add($envoyeurMessage);
-            $envoyeurMessage->setEnvoyeur($this);
-        }
-
-        return $this;
-    }
-
-    public function removeEnvoyeurMessage(Message $envoyeurMessage): static
-    {
-        if ($this->envoyeur_message->removeElement($envoyeurMessage)) {
-            // set the owning side to null (unless already changed)
-            if ($envoyeurMessage->getEnvoyeur() === $this) {
-                $envoyeurMessage->setEnvoyeur(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, Achat>
-     */
-    public function getLivre(): Collection
-    {
-        return $this->livre;
-    }
-
-    public function addLivre(Achat $livre): static
-    {
-        if (!$this->livre->contains($livre)) {
-            $this->livre->add($livre);
-            $livre->setAcheteur($this);
-        }
-
-        return $this;
-    }
-
-    public function removeLivre(Achat $livre): static
-    {
-        if ($this->livre->removeElement($livre)) {
-            // set the owning side to null (unless already changed)
-            if ($livre->getAcheteur() === $this) {
-                $livre->setAcheteur(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, Achat>
-     */
-    public function getAchats(): Collection
-    {
-        return $this->achats;
-    }
-
-    public function addAchat(Achat $achat): static
-    {
-        if (!$this->achats->contains($achat)) {
-            $this->achats->add($achat);
-            $achat->setVendeur($this);
-        }
-
-        return $this;
-    }
-
-    public function removeAchat(Achat $achat): static
-    {
-        if ($this->achats->removeElement($achat)) {
-            // set the owning side to null (unless already changed)
-            if ($achat->getVendeur() === $this) {
-                $achat->setVendeur(null);
-            }
-        }
-
-        return $this;
-    }
-
     public function getUserVendeur(): ?Vendeur
     {
         return $this->user_vendeur;
@@ -379,12 +197,41 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function setUserVendeur(Vendeur $user_vendeur): static
     {
-        // set the owning side of the relation if necessary
         if ($user_vendeur->getUser() !== $this) {
             $user_vendeur->setUser($this);
         }
 
         $this->user_vendeur = $user_vendeur;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection|Achat[]
+     */
+    public function getAchats(): Collection
+    {
+        return $this->achats;
+    }
+
+    public function addAchat(Achat $achat): self
+    {
+        if (!$this->achats->contains($achat)) {
+            $this->achats[] = $achat;
+            $achat->setAcheteur($this);
+        }
+
+        return $this;
+    }
+
+    public function removeAchat(Achat $achat): self
+    {
+        if ($this->achats->removeElement($achat)) {
+            // set the owning side to null (unless already changed)
+            if ($achat->getAcheteur() === $this) {
+                $achat->setAcheteur(null);
+            }
+        }
 
         return $this;
     }

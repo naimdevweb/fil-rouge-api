@@ -3,11 +3,6 @@
 namespace App\Entity;
 
 use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Post;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Delete;
 use App\Repository\CategoryRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -15,25 +10,17 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: CategoryRepository::class)]
-#[ApiResource(
-    operations: [
-        new Get(normalizationContext: ['groups' => ['category:read']]),
-        new GetCollection(normalizationContext: ['groups' => ['category:read']]),
-        // new Post(denormalizationContext: ['groups' => ['category:write']]),
-        // new Patch(denormalizationContext: ['groups' => ['category:write']]),
-        // new Delete(),
-    ]
-)]
+#[ApiResource]
 class Category
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['category:read', 'book:read'])]
+    #[Groups(['category:read', 'book:read', 'book:details'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['category:read', 'category:write', 'book:read'])]
+    #[Groups(['category:read', 'category:write', 'book:read', 'book:details'])]
     private ?string $name = null;
 
     /**

@@ -22,7 +22,7 @@ class VendeurRepository extends ServiceEntityRepository
     public function findBookDetailsByVendeur(int $vendeurId): array
     {
         $qb = $this->createQueryBuilder('v')
-            ->select('b.title, b.description_courte, b.description_longue, b.prix, b.author, c.name as category, e.name as etat')
+            ->select('b.title, b.description_courte, b.description_longue, b.prix, b.author, c.name as category, e.etat as etat')
             ->join('v.books', 'b')
             ->leftJoin('b.categories', 'c')
             ->leftJoin('b.etat', 'e')

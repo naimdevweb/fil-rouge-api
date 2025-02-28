@@ -4,20 +4,27 @@ namespace App\State\Provider;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use App\Repository\VendeurRepository;
+use App\Entity\Book;
+use App\Repository\BookRepository;
 
 class BookCollectionProvider implements ProviderInterface
 {
-    private VendeurRepository $vendeurRepository;
+    private BookRepository $bookRepository;
 
-    public function __construct(VendeurRepository $vendeurRepository)
+    public function __construct(BookRepository $bookRepository)
     {
-        $this->vendeurRepository = $vendeurRepository;
+        $this->bookRepository = $bookRepository;
     }
 
-    public function provide(Operation $operation, array $uriVariables = [], array $context = []): iterable
+    public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
     {
-        $vendeurId = $uriVariables['id'];
-        return $this->vendeurRepository->findBookDetailsByVendeur((int) $vendeurId);
+        $bookId = $uriVariables['id'];
+        $book = $this->bookRepository->find($bookId);
+
+        if (!$book) {
+            throw new \RuntimeException('Book not found');
+        }
+
+        return $this->bookRepository->findOtherBooksByVendeur($book);
     }
 }

@@ -16,28 +16,35 @@ class AchatRepository extends ServiceEntityRepository
         parent::__construct($registry, Achat::class);
     }
 
-//    /**
-//     * @return Achat[] Returns an array of Achat objects
-//     */
-//    public function findByExampleField($value): array
-//    {
-//        return $this->createQueryBuilder('a')
-//            ->andWhere('a.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->orderBy('a.id', 'ASC')
-//            ->setMaxResults(10)
-//            ->getQuery()
-//            ->getResult()
-//        ;
-//    }
+    /**
+     * @return array Returns an array of book titles, vendor first names, and vendor company details
+     */
+    public function findBookTitlesAndVendorDetailsByUser($userId): array
+    {
+        return $this->createQueryBuilder('a')
+            ->select('b.title', 'b.prix', 'u.user_prenom', 'v.nom_entreprise', 'v.adresse_entreprise')
+            ->join('a.livre', 'b')
+            ->join('a.vendeur', 'v')
+            ->join('v.user', 'u')
+            ->where('a.acheteur = :userId')
+            ->setParameter('userId', $userId)
+            ->getQuery()
+            ->getArrayResult();
+    }
 
-//    public function findOneBySomeField($value): ?Achat
-//    {
-//        return $this->createQueryBuilder('a')
-//            ->andWhere('a.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->getQuery()
-//            ->getOneOrNullResult()
-//        ;
-//    }
+   /**
+     * @return array Returns an array of book titles and prices sold by a vendor
+     */
+    public function findBookTitlesAndPricesByVendor($vendorId): array
+    {
+        return $this->createQueryBuilder('a')
+            ->select('b.title', 'b.prix')
+            ->join('a.livre', 'b')
+            ->where('a.vendeur = :vendorId')
+            ->setParameter('vendorId', $vendorId)
+            ->getQuery()
+            ->getArrayResult();
+    }
+
+
 }
