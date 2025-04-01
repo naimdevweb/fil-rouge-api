@@ -71,31 +71,31 @@ export default function AjouterLivrePage() {
     const file = e.target.files[0];
     
     if (file) {
-      // Vérifier le type de fichier
-      if (!file.type.match('image.*')) {
-        setErrors(prev => ({ ...prev, image: "Le fichier doit être une image (JPG, PNG, etc.)" }));
-        return;
-      }
-      
-      // Vérifier la taille de l'image (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, image: "L'image ne doit pas dépasser 5MB" }));
-        return;
-      }
-      
-      // Créer un aperçu de l'image
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-      
-      setSelectedImage(file);
-      
-      // Effacer les erreurs d'image précédentes
-      if (errors.image) {
-        setErrors(prev => ({ ...prev, image: "" }));
-      }
+        // Vérifier le type de fichier
+        if (!file.type.match('image.*')) {
+            setErrors(prev => ({ ...prev, image: "Le fichier doit être une image (JPG, PNG, etc.)" }));
+            return;
+        }
+        
+        // Vérifier la taille de l'image (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setErrors(prev => ({ ...prev, image: "L'image ne doit pas dépasser 5MB" }));
+            return;
+        }
+        
+        // Créer un aperçu de l'image
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result); // Assurez-vous que l'aperçu est défini correctement
+        };
+        reader.readAsDataURL(file);
+        
+        setSelectedImage(file);
+        
+        // Effacer les erreurs d'image précédentes
+        if (errors.image) {
+            setErrors(prev => ({ ...prev, image: "" }));
+        }
     }
   };
 
@@ -105,24 +105,15 @@ export default function AjouterLivrePage() {
     setIsUploading(true);
     
     try {
-      // Créer un FormData pour l'upload d'image
-      const formData = new FormData();
-      formData.append('file', selectedImage);
-      formData.append('upload_preset', 'votre_upload_preset'); // Remplacez par votre preset Cloudinary
+      console.log("Utilisation de l'image en base64");
       
-      // Utiliser Cloudinary pour l'upload d'image (ou un autre service d'hébergement d'images)
-      const response = await fetch('https://api.cloudinary.com/v1_1/votre_cloud_name/image/upload', {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erreur lors de l'upload de l'image");
+      if (!imagePreview) {
+        throw new Error("Erreur lors de la préparation de l'image");
       }
       
-      const data = await response.json();
-      return data.secure_url;
+      await new Promise(resolve => setTimeout(resolve, 500));
       
+      return imagePreview;
     } catch (error) {
       console.error("Erreur lors de l'upload de l'image:", error);
       throw new Error("Impossible d'uploader l'image. Veuillez réessayer.");
@@ -134,31 +125,26 @@ export default function AjouterLivrePage() {
   const validateForm = () => {
     const newErrors = {};
     
-    // Validation du titre
     if (!formData.titre.trim()) {
       newErrors.titre = "Le titre est obligatoire";
     }
     
-    // Validation de l'auteur
     if (!formData.auteur.trim()) {
       newErrors.auteur = "L'auteur est obligatoire";
     }
     
-    // Validation du prix
     if (!formData.prix) {
       newErrors.prix = "Le prix est obligatoire";
     } else if (isNaN(parseFloat(formData.prix)) || parseFloat(formData.prix) <= 0) {
       newErrors.prix = "Le prix doit être un nombre positif";
     }
     
-    // Validation de la quantité en stock
     if (!formData.quantite_stock) {
       newErrors.quantite_stock = "La quantité en stock est obligatoire";
     } else if (isNaN(parseInt(formData.quantite_stock)) || parseInt(formData.quantite_stock) < 0) {
       newErrors.quantite_stock = "La quantité doit être un nombre entier positif ou nul";
     }
     
-    // Validation de l'image
     if (!selectedImage) {
       newErrors.image = "Une image est requise pour le livre";
     }
@@ -167,113 +153,118 @@ export default function AjouterLivrePage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    return;
+  }
+  
+  setIsSubmitting(true);
+  setApiError("");
+  setSuccessMessage("");
+  
+  try {
+    let imageUrl;
+    try {
+      imageUrl = await uploadImage();
+      if (!imageUrl) {
+        throw new Error("Veuillez sélectionner une image pour votre livre");
+      }
+    } catch (error) {
+      setApiError(error.message);
+      setIsSubmitting(false);
       return;
     }
     
-    setIsSubmitting(true);
-    setApiError("");
-    setSuccessMessage("");
+    const vendeurResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${user.id}/vendeur`, {
+      headers: {
+        "Authorization": `Bearer ${auth.getToken()}`,
+        "Accept": "application/ld+json"
+      }
+    });
     
-    try {
-      // Upload de l'image
-      let imageUrl;
-      try {
-        imageUrl = await uploadImage();
-        if (!imageUrl) {
-          throw new Error("Veuillez sélectionner une image pour votre livre");
-        }
-      } catch (error) {
-        setApiError(error.message);
-        setIsSubmitting(false);
-        return;
+    if (!vendeurResponse.ok) {
+      if (vendeurResponse.status === 404) {
+        throw new Error("Vous n'avez pas encore de profil vendeur. Veuillez d'abord créer votre profil vendeur.");
+      } else if (vendeurResponse.status === 401) {
+        throw new Error("Session expirée. Veuillez vous reconnecter.");
+      } else {
+        throw new Error(`Erreur lors de la récupération des informations vendeur (${vendeurResponse.status})`);
       }
-      
-      // Récupérer l'ID du vendeur
-      const vendeurResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vendeurs?user.id=${user.id}`, {
-        headers: {
-          "Authorization": `Bearer ${auth.getToken()}`
-        }
-      });
-      
-      if (!vendeurResponse.ok) {
-        throw new Error("Impossible de récupérer les informations vendeur");
-      }
-      
-      const vendeurData = await vendeurResponse.json();
-      
-      if (!vendeurData["hydra:member"] || vendeurData["hydra:member"].length === 0) {
-        throw new Error("Aucun compte vendeur trouvé pour cet utilisateur");
-      }
-      
-      const vendeurId = vendeurData["hydra:member"][0].id;
-      
-      // Préparer les données du livre
-      const livreData = {
-        titre: formData.titre,
-        auteur: formData.auteur,
-        description: formData.description || null,
-        prix: parseFloat(formData.prix),
-        quantite_stock: parseInt(formData.quantite_stock),
-        image_url: imageUrl,
-        vendeur: `/api/vendeurs/${vendeurId}`
-      };
-      
-      // Envoyer la requête pour créer le livre
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/livres`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${auth.getToken()}`
-        },
-        body: JSON.stringify(livreData)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || errorData.message || "Erreur lors de l'ajout du livre");
-      }
-      
-      // Livre ajouté avec succès
-      const livre = await response.json();
-      
-      setSuccessMessage(`Le livre "${livre.titre}" a été ajouté avec succès!`);
-      
-      // Réinitialiser le formulaire
-      setFormData({
-        titre: "",
-        auteur: "",
-        description: "",
-        prix: "",
-        quantite_stock: "1"
-      });
-      setSelectedImage(null);
-      setImagePreview("");
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      
-      // Faire défiler la page vers le haut pour voir le message de succès
-      window.scrollTo(0, 0);
-      
-    } catch (error) {
-      console.error("Erreur lors de l'ajout du livre:", error);
-      setApiError(error.message || "Une erreur s'est produite lors de l'ajout du livre");
-      
-      // Gestion des erreurs d'authentification (token expiré)
-      if (error.message.includes("token") || error.message.includes("non autorisé") || error.message.includes("authentification")) {
-        setTimeout(() => {
-          auth.logout();
-          router.push("/auth/login?redirect=/compte/ajouter-livre");
-        }, 3000);
-      }
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+    
+    const vendeurData = await vendeurResponse.json();
+    console.log("Informations vendeur récupérées:", vendeurData);
+    
+    if (!vendeurData.id) {
+      throw new Error("Profil vendeur incomplet ou invalide.");
+    }
+    
+const livreData = {
+  "@context": "/api/contexts/Book",
+  "@type": "Book",
+  "title": formData.titre,
+  "author": formData.auteur,
+  "description": formData.description || "",
+  "prix": String(formData.prix),
+  "image": imageUrl,
+  "description_courte": formData.description ? formData.description.substring(0, 100) : "Pas de description courte",
+  "description_longue": formData.description || "Pas de description longue",
+  "etat": "/api/etats/1",
+  "vendeur": `/api/vendeurs/${vendeurData.id}`
+};
+    
+    console.log("Données du livre à envoyer:", livreData);
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/books`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/ld+json",
+        "Accept": "application/ld+json",
+        "Authorization": `Bearer ${auth.getToken()}`
+      },
+      body: JSON.stringify(livreData)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Erreur API:", errorText);
+      throw new Error("Erreur lors de l'ajout du livre: " + errorText);
+    }
+    
+    const livre = await response.json();
+    
+    setSuccessMessage(`Le livre "${livre.titre}" a été ajouté avec succès!`);
+    
+    setFormData({
+      titre: "",
+      auteur: "",
+      description: "",
+      prix: "",
+      quantite_stock: "1"
+    });
+    setSelectedImage(null);
+    setImagePreview("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    
+    window.scrollTo(0, 0);
+    
+  } catch (error) {
+    console.error("Erreur lors de l'ajout du livre:", error);
+    setApiError(error.message || "Une erreur s'est produite lors de l'ajout du livre");
+    
+    if (error.message.includes("Session expirée")) {
+      auth.logout();
+      setTimeout(() => router.push("/auth/login?redirect=/compte/ajouter-livre"), 1000);
+    }
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   if (!user) {
     return (

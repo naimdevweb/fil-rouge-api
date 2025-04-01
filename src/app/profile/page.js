@@ -49,50 +49,51 @@ export default function ProfilePage() {
     }
   }, [router]);
 
-  // Récupérer les informations du vendeur
+  // Fonction de récupération des informations vendeur
   const fetchVendeurInfo = async (userId) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}`, {
+      console.log("Récupération des informations vendeur pour l'utilisateur ID:", userId);
+      
+      const token = auth.getToken();
+      if (!token) {
+        setError("Session expirée. Veuillez vous reconnecter.");
+        auth.logout();
+        router.push("/auth/login?redirect=/profile");
+        return;
+      }
+      
+      // Utiliser la route correcte
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}/vendeur`, {
         headers: {
-          "Authorization": `Bearer ${auth.getToken()}`
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/ld+json"
         }
       });
-
-      if (!response.ok) {
-        throw new Error("Erreur lors de la récupération des informations du vendeur");
-      }
-
-      const userData = await response.json();
       
-      // Si l'utilisateur a un compte vendeur associé
-      if (userData.vendeur) {
-        let vendeurId;
-        
-        // Extraire l'ID du vendeur (selon le format de votre API)
-        if (typeof userData.vendeur === 'string' && userData.vendeur.includes('/api/vendeurs/')) {
-          vendeurId = userData.vendeur.split('/').pop();
-        } else if (typeof userData.vendeur === 'object' && userData.vendeur.id) {
-          vendeurId = userData.vendeur.id;
-        }
-        
-        if (vendeurId) {
-          // Récupérer les détails du vendeur
-          const vendeurResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vendeurs/${vendeurId}`, {
-            headers: {
-              "Authorization": `Bearer ${auth.getToken()}`
-            }
-          });
-          
-          if (vendeurResponse.ok) {
-            const vendeurData = await vendeurResponse.json();
-            setVendeur(vendeurData);
-          }
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log("Aucun vendeur trouvé pour cet utilisateur");
+          // Note: On ne doit pas définir d'erreur ici, car c'est ok si l'utilisateur n'a pas de vendeur
+          setLoading(false);
+          return;
+        } else if (response.status === 401) {
+          setError("Session expirée. Veuillez vous reconnecter.");
+          auth.logout();
+          setTimeout(() => router.push("/auth/login?redirect=/profile"), 1000);
+          return;
+        } else {
+          throw new Error(`Erreur lors de la récupération des informations vendeur (${response.status})`);
         }
       }
+      
+      const vendeurData = await response.json();
+      console.log("Informations vendeur récupérées:", vendeurData);
+      setVendeur(vendeurData);
     } catch (error) {
-      console.error("Erreur lors de la récupération des informations du vendeur:", error);
-      setError("Impossible de charger les informations du vendeur");
+      console.error("Erreur fetchVendeurInfo:", error);
+      setError("Impossible de charger les informations du vendeur: " + error.message);
     } finally {
+      // Très important: mettre fin au chargement dans tous les cas!
       setLoading(false);
     }
   };
@@ -102,7 +103,7 @@ export default function ProfilePage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleProfileSubmit = async (e) => {
     e.preventDefault();
     // Ajouter la logique de mise à jour du profil si nécessaire
   };
@@ -189,7 +190,7 @@ export default function ProfilePage() {
             </div>
           </div>
           
-          {/* Section Vendeur - Ajoutée selon votre demande */}
+          {/* Section Vendeur */}
           {user?.roles?.includes("ROLE_VENDEUR") ? (
             <div className="mt-8 bg-white rounded-lg shadow-md overflow-hidden">
               <div className="px-6 py-4 bg-blue-600 text-white">
@@ -197,7 +198,7 @@ export default function ProfilePage() {
               </div>
               
               <div className="p-6">
-                {vendeur && (
+                {vendeur ? (
                   <div className="mb-6">
                     <p className="text-gray-600 mb-1">Nom de l'entreprise:</p>
                     <p className="font-medium">{vendeur.nom_entreprise}</p>
@@ -205,6 +206,10 @@ export default function ProfilePage() {
                     <p className="text-gray-600 mt-4 mb-1">Adresse:</p>
                     <p className="font-medium">{vendeur.adresse_entreprise}</p>
                   </div>
+                ) : (
+                  <p className="text-yellow-600 mb-4">
+                    Vous avez le rôle vendeur mais aucun profil vendeur n'a été trouvé. Veuillez contacter l'administrateur.
+                  </p>
                 )}
                 
                 <div className="flex flex-col gap-4">
